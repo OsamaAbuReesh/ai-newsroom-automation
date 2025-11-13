@@ -1,0 +1,148 @@
+{
+  "name": "Arabic Editorial Translation Subflow",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// Robustly read from Webhook payload\nconst src = $json.body ?? $json;\n\nconst lang = (src.target_language || $json.target_language || 'en').toLowerCase();\n\n// The edited article may be an object (JSON with Arabic keys) or a string\nconst article = src.input_text ?? src.article ?? src.text ?? \"\";\n\n// Convert to a clean string for the model\nconst text =\n  typeof article === 'string'\n    ? article.trim()\n    : JSON.stringify(article, null, 2);\n\n// Safety: if empty, return a helpful message for debugging\nif (!text) {\n  return [{\n    json: {\n      error: \"missing_input_text\",\n      hint: \"No input_text found under body.input_text or root.\",\n      seen_keys: Object.keys(src)\n    }\n  }];\n}\n\n// Build ONE prompt string (Basic LLM Chain expects a single prompt by default)\nconst prompt = `\nYou are a professional bilingual news translator working for an Arabic newsroom.\nYour task is to translate the following Arabic news article into ${lang === 'he' ? 'Hebrew' : 'English'}.\n\nRules:\n- Keep the journalistic tone and structure.\n- Preserve all factual information, names, dates, and places exactly as they appear.\n- Do NOT invent or replace content.\n- Maintain the original paragraphing (introduction, details, conclusion).\n- Do not translate or alter any personal names, organization names, numbers, or dates. Keep all locations exactly as written in Arabic (just transliterate if necessary).\n\nReturn ONLY valid JSON in this structure:\n{\n  \"category\": \"\",\n  \"title\": \"\",\n  \"introduction\": \"\",\n  \"details\": \"\",\n  \"conclusion\": \"\",\n  \"keywords\": []\n}\n\nArabic Text:\n${text}\n\nRespond ONLY with the translated JSON (no markdown, no extra notes).\n\n`;\n\nreturn [{ json: { prompt } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        -208
+      ],
+      "id": "358abb2c-f73f-4b53-ad5c-f2ecd5f22a49",
+      "name": "Prepare Translation Prompt"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        560,
+        -128
+      ],
+      "id": "6a854d9c-ef10-4262-935a-97ce824b26de",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "openai/chatgpt-4o-latest",
+          "mode": "list",
+          "cachedResultName": "openai/chatgpt-4o-latest"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        576,
+        64
+      ],
+      "id": "564f5786-8bc7-4b29-bc88-c0a23cba6133",
+      "name": "GPT-4 Translation Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "FInKD3NG7Vt8rWp8",
+          "name": "OpenAi account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        960,
+        -80
+      ],
+      "id": "352b9a95-d445-438f-80b3-3191cb4f88ae",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "translate",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        16,
+        48
+      ],
+      "id": "ee265594-dbdd-401b-ba3c-8291fcdc2708",
+      "name": "Webhook - Translate",
+      "webhookId": "e4fabe9c-2879-4c43-a023-c4213a65687b"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "GPT-4 Translation Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Translation Prompt": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - Translate": {
+      "main": [
+        [
+          {
+            "node": "Prepare Translation Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "2baa4fb4-25e0-4c65-82a9-5c505d9ebff5",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d63e20615430c505cc199c9781f593c624422f758b134ca561a2938fe4b243d2"
+  },
+  "id": "QELtXmiLI9KbiXIa",
+  "tags": []
+}
