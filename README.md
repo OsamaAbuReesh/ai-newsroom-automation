@@ -97,7 +97,7 @@ in the following video:
 
 ---
 
-## 👨‍💻 Author / المطوّر
+## 👨‍💻 Author
 
 **Name:** Osama AbuReesh
 **GitHub:** [OsamaAbuReesh](https://github.com/OsamaAbuReesh)  
